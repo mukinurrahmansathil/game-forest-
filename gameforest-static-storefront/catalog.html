@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>All Games — Game Forest</title>
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+  <header>
+    <a class="brand" href="index.html"><span class="leaf">🌲</span> Game Forest</a>
+    <nav>
+      <a href="index.html">Home</a>
+      <a href="catalog.html" class="active">All Games</a>
+    </nav>
+  </header>
+
+  <main>
+    <div class="crumb"><a href="index.html">Home</a> / All Games</div>
+    <h1 style="margin:0 0 6px;">All Games</h1>
+    <p style="color:var(--muted); margin-bottom:28px;">Browse every game we support, by purchase type.</p>
+
+    <div class="tabs" id="type-tabs"></div>
+    <div class="grid" id="game-grid"></div>
+  </main>
+
+  <footer>Game Forest &middot; configurable marketplace platform &middot; demo front-end</footer>
+
+  <script src="assets/data.js"></script>
+  <script>
+    const TYPE_LABELS = {
+      all: "All",
+      uid_topup: "UID Top-up",
+      gift_code: "Gift Code",
+      game_pass: "Game Pass",
+      account_service: "Account Service"
+    };
+
+    function uniqueTypesInCatalog() {
+      const set = new Set();
+      CATALOG.forEach(g => g.purchaseTypes.forEach(pt => set.add(pt.type)));
+      return Array.from(set);
+    }
+
+    let activeFilter = "all";
+
+    function render() {
+      const tabsEl = document.getElementById("type-tabs");
+      const types = ["all", ...uniqueTypesInCatalog()];
+      tabsEl.innerHTML = types.map(t => {
+        const count = t === "all"
+          ? CATALOG.length
+          : CATALOG.filter(g => g.purchaseTypes.some(pt => pt.type === t)).length;
+        return `<span class="tab ${t === activeFilter ? "active" : ""}" data-type="${t}">
+                  ${TYPE_LABELS[t] || t} <span class="count">${count}</span>
+                </span>`;
+      }).join("");
+
+      tabsEl.querySelectorAll(".tab").forEach(el => {
+        el.addEventListener("click", () => {
+          activeFilter = el.dataset.type;
+          render();
+        });
+      });
+
+      const visible = activeFilter === "all"
+        ? CATALOG
+        : CATALOG.filter(g => g.purchaseTypes.some(pt => pt.type === activeFilter));
+
+      const grid = document.getElementById("game-grid");
+      if (visible.length === 0) {
+        grid.outerHTML = `<div class="empty"><p>No games match this filter yet.</p></div>`;
+        return;
+      }
+      grid.innerHTML = visible.map(game => {
+        const allPrices = game.purchaseTypes.flatMap(pt => pt.packages.map(p => p.price));
+        const minPrice = Math.min(...allPrices);
+        return `
+          <a class="game-tile ${game.tile}" href="game.html?slug=${game.slug}">
+            <div class="mark">${game.mark}</div>
+            <h3>${game.name}</h3>
+            <p class="tagline">${game.tagline}</p>
+            <div class="price">From ${CURRENCY}${minPrice}</div>
+          </a>`;
+      }).join("");
+    }
+
+    render();
+  </script>
+</body>
+</html>

@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title id="page-title">Game Forest</title>
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+  <header>
+    <a class="brand" href="index.html"><span class="leaf">🌲</span> Game Forest</a>
+    <nav>
+      <a href="index.html">Home</a>
+      <a href="catalog.html">All Games</a>
+    </nav>
+  </header>
+
+  <main id="main-content">
+    <!-- filled by JS; shows a not-found message if ?slug= doesn't match -->
+  </main>
+
+  <footer>Game Forest &middot; configurable marketplace platform &middot; demo front-end</footer>
+
+  <script src="assets/data.js"></script>
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const slug = params.get("slug");
+    const game = CATALOG.find(g => g.slug === slug);
+    const mainEl = document.getElementById("main-content");
+
+    if (!game) {
+      mainEl.innerHTML = `
+        <div class="empty">
+          <p>Game not found.</p>
+          <p><a href="catalog.html" style="color:var(--gold);">&larr; Back to all games</a></p>
+        </div>`;
+    } else {
+      document.getElementById("page-title").textContent = game.name + " — Game Forest";
+      mainEl.innerHTML = `
+        <div class="crumb">
+          <a href="index.html">Home</a> / <a href="catalog.html">All Games</a> / ${game.name}
+        </div>
+        <div class="product-grid">
+          <div>
+            <div class="product-banner game-tile ${game.tile}">
+              <h1>${game.name}</h1>
+            </div>
+            <div class="info-box">
+              <h4>About ${game.name}</h4>
+              <p style="color:var(--muted); font-size:0.9rem; line-height:1.6;">${game.tagline}</p>
+            </div>
+          </div>
+          <div id="order-panel"></div>
+        </div>`;
+
+      // ---- Purchase flow state ----
+      let activeTypeIndex = 0;
+      let qty = {}; // package id -> quantity, reset on purchase-type switch
+
+      function currentType() {
+        return game.purchaseTypes[activeTypeIndex];
+      }
+
+      function resetQty() {
+        qty = {};
+        currentType().packages.forEach(p => { qty[p.id] = 0; });
+      }
+      resetQty();
+
+      function renderOrderPanel() {
+        const pt = currentType();
+        const panel = document.getElementById("order-panel");
+
+        const typeTabsHtml = game.purchaseTypes.map((t, i) => `
+          <span class="ptype-tab ${i === activeTypeIndex ? "active" : ""}" data-index="${i}">${t.label}</span>
+        `).join("");
+
+        const fieldHtml = pt.isTextarea
+          ? `<textarea id="order-field" placeholder="${pt.fieldLabel}"></textarea>`
+          : `<input type="text" id="order-field" placeholder="${pt.fieldLabel}">`;
+
+        const pkgHtml = pt.packages.map(p => `
+          <div class="pkg-card">
+            <div class="label">${p.label}</div>
+            <div class="price">
+              ${p.original ? `<span class="orig">${CURRENCY}${p.original}</span>` : ""}
+              ${CURRENCY}${p.price}
+            </div>
+            <div class="qty-row">
+              <button class="qty-btn" data-action="dec" data-id="${p.id}">&minus;</button>
+              <span class="qty-val" id="qty-${p.id}">${qty[p.id]}</span>
+              <button class="qty-btn" data-action="inc" data-id="${p.id}">+</button>
+            </div>
+          </div>
+        `).join("");
+
+        panel.innerHTML = `
+          <div class="order-box">
+            <div class="step-title"><span class="step-num">1</span>Purchase type</div>
+            <div class="ptype-tabs">${typeTabsHtml}</div>
+            <div class="step-title"><span class="step-num">2</span>${pt.fieldLabel}</div>
+            ${fieldHtml}
+          </div>
+          <div class="order-box">
+            <div class="step-title"><span class="step-num">3</span>Select package(s) &amp; quantity</div>
+            <div class="pkg-grid">${pkgHtml}</div>
+          </div>
+          <div class="order-box">
+            <div class="step-title"><span class="step-num">4</span>Order summary</div>
+            <div id="summary-lines"></div>
+            <div class="summary-total"><span>Total</span><span id="summary-total">${CURRENCY}0</span></div>
+            <button class="checkout-btn" id="checkout-btn" disabled>Select a package to continue</button>
+            <p class="soon-note">Demo front-end &mdash; checkout isn't wired to a real payment yet.</p>
+          </div>`;
+
+        // purchase-type tab switching
+        panel.querySelectorAll(".ptype-tab").forEach(el => {
+          el.addEventListener("click", () => {
+            activeTypeIndex = parseInt(el.dataset.index, 10);
+            resetQty();
+            renderOrderPanel();
+          });
+        });
+
+        // quantity steppers
+        panel.querySelectorAll(".qty-btn").forEach(btn => {
+          btn.addEventListener("click", () => {
+            const id = btn.dataset.id;
+            if (btn.dataset.action === "inc") qty[id] = (qty[id] || 0) + 1;
+            if (btn.dataset.action === "dec") qty[id] = Math.max(0, (qty[id] || 0) - 1);
+            document.getElementById(`qty-${id}`).textContent = qty[id];
+            updateSummary();
+          });
+        });
+
+        updateSummary();
+      }
+
+      function updateSummary() {
+        const pt = currentType();
+        const linesEl = document.getElementById("summary-lines");
+        const totalEl = document.getElementById("summary-total");
+        const checkoutBtn = document.getElementById("checkout-btn");
+
+        const selected = pt.packages
+          .map(p => ({ ...p, qty: qty[p.id] || 0 }))
+          .filter(p => p.qty > 0);
+
+        if (selected.length === 0) {
+          linesEl.innerHTML = `<p style="color:var(--muted); font-size:0.85rem;">No packages selected yet.</p>`;
+          totalEl.textContent = `${CURRENCY}0`;
+          checkoutBtn.disabled = true;
+          checkoutBtn.textContent = "Select a package to continue";
+          return;
+        }
+
+        let total = 0;
+        linesEl.innerHTML = selected.map(p => {
+          const subtotal = p.price * p.qty;
+          total += subtotal;
+          return `<div class="summary-line">
+                    <span class="lbl">${p.label} &times; ${p.qty}</span>
+                    <span>${CURRENCY}${subtotal}</span>
+                  </div>`;
+        }).join("");
+        totalEl.textContent = `${CURRENCY}${total}`;
+        checkoutBtn.disabled = false;
+        checkoutBtn.textContent = `Checkout — ${CURRENCY}${total}`;
+
+        checkoutBtn.onclick = () => {
+          const fieldVal = document.getElementById("order-field").value.trim();
+          if (!fieldVal) {
+            alert(`Please enter: ${pt.fieldLabel}`);
+            return;
+          }
+          alert(`Demo only — no real order was placed.\n\n${pt.fieldLabel}: ${fieldVal}\nTotal: ${CURRENCY}${total}`);
+        };
+      }
+
+      renderOrderPanel();
+    }
+  </script>
+</body>
+</html>

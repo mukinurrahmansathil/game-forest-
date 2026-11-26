@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Game Forest — Top Up. Subscribe. Create More.</title>
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+  <header>
+    <a class="brand" href="index.html"><span class="leaf">🌲</span> Game Forest</a>
+    <nav>
+      <a href="index.html" class="active">Home</a>
+      <a href="catalog.html">All Games</a>
+    </nav>
+  </header>
+
+  <main>
+    <div class="hero-banner">
+      <div class="stars">★★★★★</div>
+      <h2>Trusted top-up platform &mdash; <span style="color:var(--forest-light)">Game Forest</span></h2>
+      <p>Instant top-ups for Roblox, PUBG Mobile, Call of Duty Mobile, Clash of Clans and more. Pay with bKash, Nagad or Rocket.</p>
+    </div>
+
+    <h2 class="section-title" style="margin-top:36px;">Popular Games</h2>
+    <p class="section-sub">Pick a game to see packages and pricing</p>
+    <div class="grid" id="game-grid"></div>
+
+    <div class="strip">
+      <div class="item"><div class="n">⚡</div><h4>Instant Delivery</h4><p>Most orders complete within 15–30 minutes</p></div>
+      <div class="item"><div class="n">🔒</div><h4>Secure Orders</h4><p>Your order details are never shared with third parties</p></div>
+      <div class="item"><div class="n">💬</div><h4>Real Support</h4><p>WhatsApp &amp; Messenger support for every order</p></div>
+    </div>
+  </main>
+
+  <footer>Game Forest &middot; configurable marketplace platform &middot; demo front-end</footer>
+
+  <script src="assets/data.js"></script>
+  <script>
+    const grid = document.getElementById("game-grid");
+    grid.innerHTML = CATALOG.map(game => {
+      const allPrices = game.purchaseTypes.flatMap(pt => pt.packages.map(p => p.price));
+      const minPrice = Math.min(...allPrices);
+      return `
+        <a class="game-tile ${game.tile}" href="game.html?slug=${game.slug}">
+          <div class="mark">${game.mark}</div>
+          <h3>${game.name}</h3>
+          <div class="price">From ${CURRENCY}${minPrice}</div>
+        </a>`;
+    }).join("");
+  </script>
+</body>
+</html>
